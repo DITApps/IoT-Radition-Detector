@@ -45,7 +45,7 @@ void setup()
   
   client.wifiConnection(WIFISSID, PASSWORD);
   Serial.print("Wi-Fi Conneted!!");
-  client.setDataSourceName("gps-tracker");
+  //client.setDataSourceName("gps-tracker");
 }
 
 void loop()
@@ -68,13 +68,18 @@ void loop()
            
           client.add("humi", _humi, context);
           client.add("temp", _temp, context);
-          client.add("location ", _temp, context);
+          //client.add("location ", _temp, context);
           client.sendAll(true);
           
           Serial.print(F("Location: ")); 
           Serial.print(_lat);
           Serial.print(F(","));
           Serial.print(_lng);
+          Serial.print(F("Humi: "));
+          Serial.print(_humi);
+          Serial.print(F("Temp: "));
+          Serial.println(_temp);
+          
         }
         else
         {
