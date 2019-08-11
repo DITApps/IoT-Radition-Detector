@@ -64,16 +64,7 @@ void loop() {
   //Read Statue, Measuring Time, Measuring Value
   Gamma_Mod_Read_Value();
   Serial.println("================================================");
-  // OLED Display
-    //display.begin(SSD1306_SWITCHCAPVCC, 0x3D);
-//    display.clearDisplay();
-//    display.setTextSize(1);
-//    display.setTextColor(WHITE);
-//    display.setCursor(0, 0);
-    //display.print(value);
-//    display.print("  uSv/hr");
-//    display.display();
-    delay(500);
+  delay(500);
 }
 
 void Gamma_Mod_Read_Value(){
@@ -157,6 +148,7 @@ void Print_Result(int cmd){
     value = buffer[0] + (float)buffer[1]/100;
     Serial.print(value); Serial.println(" uSv/hr");
 
+//  OLED Display
     display.clearDisplay();
     display.setTextSize(1);
     display.setTextColor(WHITE);
@@ -168,8 +160,8 @@ void Print_Result(int cmd){
     display.print(value);
     display.print(" uSv/h");
   
-    display.display();
-    delay(500);
+    //display.display();
+    //delay(500);
     
     break;
     
@@ -179,7 +171,7 @@ void Print_Result(int cmd){
     Serial.print(value); Serial.println(" uSv/hr");
     
 //  OLED Display
-    display.clearDisplay();
+    //display.clearDisplay();
     display.setTextSize(1);
     display.setTextColor(WHITE);
     display.setCursor(0, 0);
