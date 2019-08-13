@@ -10,10 +10,10 @@ SSD1306  display(0x3c, 5, 4); // Initialise the OLED display using Wire library
 // Ubidots Business : IoTBusan
 #define TOKEN  "BBFF-H33IAugaKzWOs1sS1thrIzCP0nQNu7"  // Put here your Ubidots TOKEN
 
-//#define WIFISSID "melon" // Put here your Wi-Fi SSID
-//#define PASSWORD "deitcs3217" // Put here your Wi-Fi password
-#define WIFISSID "Amadeus" // Put here your Wi-Fi SSID
+#define WIFISSID "melon" // Put here your Wi-Fi SSID
 #define PASSWORD "deitcs3217" // Put here your Wi-Fi password
+//#define WIFISSID "Amadeus" // Put here your Wi-Fi SSID
+//#define PASSWORD "deitcs3217" // Put here your Wi-Fi password
 //#define WIFISSID "olleh_WiFi_0F8E" // Put here your Wi-Fi SSID
 //#define PASSWORD "0000006593" // Put here your Wi-Fi password
 
