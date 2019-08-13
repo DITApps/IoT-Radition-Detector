@@ -166,9 +166,10 @@ void Print_Result(int cmd){
     case 0xB2:
     Serial.print("Measuring Value(10min avg)\t");
     value = buffer[0] + (float)buffer[1]/100;
-    Serial.print(value / 12.30); Serial.println(" uSv/hr");
-
     val_10min = value / 12.30;
+    Serial.print(val_10min); Serial.println(" uSv/hr");
+
+   
     client.add("uSv_Hr_10_min", val_10min);
     client.sendAll(true);
     delay(5000);
@@ -182,8 +183,8 @@ void Print_Result(int cmd){
 
     display.setCursor(0, 42);
     display.setTextSize(2);
-    display.print(value);
-    display.setCursor(50, 49);
+    display.print(val_10min);
+    display.setCursor(58, 49);
     display.setTextSize(1);
     display.print(" uSv/hr");
     
@@ -195,9 +196,9 @@ void Print_Result(int cmd){
     case 0xB3:
     Serial.print("Measuring Value(1min avg)\t");
     value = buffer[0] + (float)buffer[1]/100;
-    Serial.print(value / 12.30); Serial.println(" uSv/hr");
-
     val_1min = value / 12.30;
+    Serial.print(val_1min); Serial.println(" uSv/hr");
+
     client.add("uSv_Hr_1_min", val_1min);
     client.sendAll(true);
     delay(5000);
@@ -210,8 +211,8 @@ void Print_Result(int cmd){
     display.print("1 min avg value");
     display.setCursor(0, 10);
     display.setTextSize(2);
-    display.print(value);
-    display.setCursor(50, 17);
+    display.print(val_1min);
+    display.setCursor(58, 17);
     display.setTextSize(1);
     display.print(" uSv/hr");
   
