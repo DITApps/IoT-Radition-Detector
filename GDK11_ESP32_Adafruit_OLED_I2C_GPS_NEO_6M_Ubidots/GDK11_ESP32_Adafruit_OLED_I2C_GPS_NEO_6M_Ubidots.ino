@@ -27,28 +27,28 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 //#define PASSWORD "0000006593" // Put here your Wi-Fi password
 
 /*
-* We will be using the I2C hardware interface on the Arduino in
-* combination with the built-in Wire library to interface.
-* Arduino analog input 5 - I2C SCL
-* Arduino analog input 4 - I2C SDA
-*
-* Command List
-* 0xA0 :: Reset
-* 0xB0 :: Read Status
-* 0xB1 :: Read Measuring Time
-* 0xB2 :: Read Measuring Value (10min avg / 1min update)
-* 0xB3 :: Read Measuring Value (1min avg / 1min update)
-* 0xB4 :: Read Firmware Version
-*
-* Address Assignment
-* Default Address :: 0x18
-* A0 Open, A1 Short :: 0x19
-* A0 Short, A1 Open :: 0x1A
-* A0 Open, A1 Open :: 0x1B
+  We will be using the I2C hardware interface on the Arduino in
+  combination with the built-in Wire library to interface.
+  Arduino analog input 5 - I2C SCL
+  Arduino analog input 4 - I2C SDA
+
+  Command List
+  0xA0 :: Reset
+  0xB0 :: Read Status
+  0xB1 :: Read Measuring Time
+  0xB2 :: Read Measuring Value (10min avg / 1min update)
+  0xB3 :: Read Measuring Value (1min avg / 1min update)
+  0xB4 :: Read Firmware Version
+
+  Address Assignment
+  Default Address :: 0x18
+  A0 Open, A1 Short :: 0x19
+  A0 Short, A1 Open :: 0x1A
+  A0 Open, A1 Open :: 0x1B
 */
 int addr = 0x18;
 int _day, _hour, _min, _sec = 0;
-byte buffer[2] = {0,0};
+byte buffer[2] = {0, 0};
 int status = 0;
 
 // GPS
@@ -65,7 +65,7 @@ float val_1min = 0.0f;
 float val_10min = 0.0f;
 
 unsigned long previousMillis = 0;     // last time data was send
-const long interval = 2000;           // data transfer interval 
+const long interval = 2000;           // data transfer interval
 
 Ubidots client(TOKEN);
 
@@ -81,9 +81,9 @@ void setup() {
   Gamma_Mod_Read(0xA0);
   Serial.println("================================================");
 
-  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3D)) { // Address 0x3D for 128x64
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3D)) { // Address 0x3D for 128x64
     Serial.println(F("SSD1306 allocation failed"));
-    for(;;);
+    for (;;);
   }
 
   display.begin(SSD1306_SWITCHCAPVCC, 0x3D);// initialize with the I2C addr 0x3C
@@ -93,17 +93,17 @@ void setup() {
   client.wifiConnection(WIFISSID, PASSWORD);
   Serial.print("Wi-Fi Conneted!!");
   client.setDataSourceName("Iot_Radiation_tracker");
-  
+
 }
 
-void loop() 
+void loop()
 {
-  while (ss.available() > 0) 
+  while (ss.available() > 0)
   {
-    if (gps.encode(ss.read())) 
+    if (gps.encode(ss.read()))
     {
       unsigned long currentMillis = millis();
-      if (currentMillis - previousMillis >= interval) 
+      if (currentMillis - previousMillis >= interval)
       {
         previousMillis = currentMillis;
         if (gps.location.isValid())
@@ -112,11 +112,11 @@ void loop()
           _lng = gps.location.lng();
           sprintf(context, "lat=%.3f$lng=%.3f", _lat, _lng);
           Serial.print(context);
-          
+
           //Read Statue, Measuring Time, Measuring Value
           Gamma_Mod_Read_Value();
           Serial.println("================================================");
-        } else 
+        } else
         {
           Serial.print(F("INVALID"));
         }
@@ -127,11 +127,11 @@ void loop()
   if (millis() > 5000 && gps.charsProcessed() < 10)
   {
     Serial.println(F("No GPS detected: check wiring."));
-    while(true);
+    while (true);
   }
 }
 
-void Gamma_Mod_Read_Value(){
+void Gamma_Mod_Read_Value() {
   Gamma_Mod_Read(0xB0); // Read Status
   Gamma_Mod_Read(0xB1); // Read Measuring Time
   Gamma_Mod_Read(0xB2); // Read Measuring Value (10min avg / 1min update)
@@ -149,7 +149,7 @@ void Gamma_Mod_Read(int cmd)
   /* Begin Read Sequence */
   Wire.requestFrom(addr, 2);
   byte i = 0;
-  while(Wire.available())
+  while (Wire.available())
   {
     buffer[i] = Wire.read();
     i++;
@@ -159,113 +159,122 @@ void Gamma_Mod_Read(int cmd)
   Print_Result(cmd);
 }
 /*
-* Calculation Measuring Time
-* Format :: 0d 00:00:00 ( (day)d (hour):(min):(sec) )
+  Calculation Measuring Time
+  Format :: 0d 00:00:00 ( (day)d (hour):(min):(sec) )
 */
-void Cal_Measuring_Time(){
-  if(_sec == 60) { _sec = 0; _min++; }
-  if(_min == 60) { _min = 0; _hour++; }
-  if(_hour == 24) { _hour = 0; _day++; }
+void Cal_Measuring_Time() {
+  if (_sec == 60) {
+    _sec = 0;
+    _min++;
+  }
+  if (_min == 60) {
+    _min = 0;
+    _hour++;
+  }
+  if (_hour == 24) {
+    _hour = 0;
+    _day++;
+  }
   Serial.print("Measuring Time\t\t\t");
   Serial.print(_day); Serial.print("d ");
-  if(_hour < 10) Serial.print("0");
+  if (_hour < 10) Serial.print("0");
   Serial.print(_hour); Serial.print(":");
-  if(_min < 10) Serial.print("0");
-  //Serial.print(); 
+  if (_min < 10) Serial.print("0");
+  //Serial.print();
   Serial.print(":");
-  if(_sec < 10) Serial.print("0");
+  if (_sec < 10) Serial.print("0");
   Serial.println(_sec);
 }
 
-void Print_Result(int cmd){
+void Print_Result(int cmd) {
   float value = 0.0f;
-  switch(cmd){
+  switch (cmd) {
     case 0xA0:
-    Serial.print("Reset Response\t\t\t");
-    if(buffer[0]== 1) Serial.println("Reset Success.");
-    else Serial.println("Reset Fail(Status - Ready).");
-    break;
-    
+      Serial.print("Reset Response\t\t\t");
+      if (buffer[0] == 1) Serial.println("Reset Success.");
+      else Serial.println("Reset Fail(Status - Ready).");
+      break;
+
     case 0xB0:
-    Serial.print("Status\t\t\t\t");
-    switch(buffer[0]){
-      case 0: Serial.println("Ready"); break;
-      case 1: Serial.println("10min Waiting"); break;
-      case 2: Serial.println("Normal"); break;
-    }
-    status = buffer[0];
-    Serial.print("VIB Status\t\t\t");
-    switch(buffer[1]){
-      case 0: Serial.println("OFF"); break;
-      case 1: Serial.println("ON"); break;
-    }
-    break;
-    
+      Serial.print("Status\t\t\t\t");
+      switch (buffer[0]) {
+        case 0: Serial.println("Ready"); break;
+        case 1: Serial.println("10min Waiting"); break;
+        case 2: Serial.println("Normal"); break;
+      }
+      status = buffer[0];
+      Serial.print("VIB Status\t\t\t");
+      switch (buffer[1]) {
+        case 0: Serial.println("OFF"); break;
+        case 1: Serial.println("ON"); break;
+      }
+      break;
+
     case 0xB1:
-    if(status > 0){
-      _sec++;
-      Cal_Measuring_Time();
-    }
-    break;
-    
+      if (status > 0) {
+        _sec++;
+        Cal_Measuring_Time();
+      }
+      break;
+
     case 0xB2:
-    Serial.print("Measuring Value(10min avg)\t");
-    value = buffer[0] + (float)buffer[1]/100;
-    val_10min = value / 12.30;
-    Serial.print(val_10min); Serial.println(" uSv/hr");
-    
-    client.add("val_10min", val_10min, context);
-   
-//  OLED Display
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
-    display.setCursor(0, 32);
-    display.print("10 min avg value");
+      Serial.print("Measuring Value(10min avg)\t");
+      value = buffer[0] + (float)buffer[1] / 100;
+      val_10min = value / 12.30;
+      Serial.print(val_10min); Serial.println(" uSv/hr");
 
-    display.setCursor(0, 42);
-    display.setTextSize(2);
-    display.print(val_10min);
-    display.setCursor(50, 49);
-    display.setTextSize(1);
-    display.print(" uSv/hr");
-  
-    //display.display();
-    //delay(500);
-    
-    break;
-    
+      client.add("val_10min", val_10min, context);
+
+      //  OLED Display
+      display.clearDisplay();
+      display.setTextSize(1);
+      display.setTextColor(WHITE);
+      display.setCursor(0, 32);
+      display.print("10 min avg value");
+
+      display.setCursor(0, 42);
+      display.setTextSize(2);
+      display.print(val_10min);
+      display.setCursor(50, 49);
+      display.setTextSize(1);
+      display.print(" uSv/hr");
+
+      //display.display();
+      //delay(500);
+
+      break;
+
     case 0xB3:
-    Serial.print("Measuring Value(1min avg)\t");
-    value = buffer[0] + (float)buffer[1]/100;
-    val_1min = value / 12.30;
-    Serial.print(val_1min); Serial.println(" uSv/hr");
-    
-    client.add("val_1min", val_1min, context);
-    client.sendAll(true);
-    
-//  OLED Display
-    //display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
-    display.setCursor(0, 0);
-    display.print("1 min avg value");
+      Serial.print("Measuring Value(1min avg)\t");
+      value = buffer[0] + (float)buffer[1] / 100;
+      val_1min = value / 12.30;
+      Serial.print(val_1min); Serial.println(" uSv/hr");
 
-    display.setCursor(0, 10);
-    display.setTextSize(2);
-    display.print(val_1min);
-    display.setCursor(50, 17);
-    display.setTextSize(1);
-    display.print(" uSv/hr");
-  
-    display.display();
-    delay(500);
-    break;
-    
+      client.add("val_1min", val_1min, context);
+      client.sendAll(true);
+
+      //  OLED Display
+      //display.clearDisplay();
+      display.setTextSize(1);
+      display.setTextColor(WHITE);
+      display.setCursor(0, 0);
+      display.print("1 min avg value");
+
+      display.setCursor(0, 10);
+      display.setTextSize(2);
+      display.print(val_1min);
+      display.setCursor(50, 17);
+      display.setTextSize(1);
+      display.print(" uSv/hr");
+
+      display.display();
+      delay(500);
+      break;
+
     case 0xB4:
-    Serial.print("FW Version\t\t\t");
-    Serial.print("V"); Serial.print(buffer[0]);
-    Serial.print("."); Serial.println(buffer[1]);
-    break;
+      Serial.print("FW Version\t\t\t");
+      Serial.print("V"); Serial.print(buffer[0]);
+      Serial.print("."); Serial.println(buffer[1]);
+      break;
   }
 }

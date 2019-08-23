@@ -11,7 +11,7 @@
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
-// Ubidots Business : IoTBusan
+// Ubidots Business : .IoTBusan
 #define TOKEN  "BBFF-H33IAugaKzWOs1sS1thrIzCP0nQNu7"  // Put here your Ubidots TOKEN
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
@@ -52,21 +52,27 @@ byte buffer[2] = {0, 0};
 int status = 0;
 
 // GPS
-static const int RXPin = D7, TXPin = D6;
-//static const uint32_t GPSBaud = 115200; // Change according to your device
-static const uint32_t GPSBaud = 9600;
+static const int RXPin = D7, TXPin = D6; // GPS Software Serial
+static const int BuzzerPin = D5; // 부저 PWM
+static const uint32_t GPSBaud = 9600; // Change according to your device
+
 // The TinyGPS++ object
 TinyGPSPlus gps;
+
 // The serial connection to the GPS device
 SoftwareSerial ss(RXPin, TXPin);
+
 double _lat, _lng;
 char context[25];
-// 보정값 저장
+
+// 감마센서 보정값 저장
 float val_1min = 0.0f;
 float val_10min = 0.0f;
+int val_alert = 0;
 
+// 센서 작동 시간 주기
 unsigned long previousMillis = 0;     // last time data was send
-const long interval = 1000;           // data transfer interval
+const long interval = 10000;           // data transfer interval
 
 Ubidots client(TOKEN);
 
@@ -74,6 +80,8 @@ void setup() {
   //Arduino Initialize
   Serial.begin(115200);
   Wire.begin();
+  // Buzzer init
+  pinMode(BuzzerPin, OUTPUT);
   // GPS init
   ss.begin(GPSBaud);
 
@@ -95,12 +103,26 @@ void setup() {
   // Ubidits Wi-Fi connection
   client.wifiConnection(WIFISSID, PASSWORD);
   Serial.print("Wi-Fi Conneted!!");
-  // Ubidots Device Name 
+  // Ubidots Device Name 설정 
   client.setDataSourceName("Iot_Radiation_tracker");
 }
 
 void loop()
-{
+{ 
+  // Buzzer Alerm Start
+  val_alert = val_1min * 100;
+  Serial.println(val_alert);
+  switch (val_alert) {
+    case 1 ... 39 :  // 방사선 발견시
+      buzzerAlert(0, 500, 500);
+    case 40 ... 299 : // 경고 수준
+      buzzerAlert(2000, 500, 100);
+      break;
+    case 300 ... 5000 :  // 위험 수준
+      buzzerAlert(20000, 500, 10);
+      break;
+  }
+  
   unsigned long currentMillis = millis();
   if (currentMillis - previousMillis >= interval)
   {
@@ -278,4 +300,12 @@ void Print_Result(int cmd) {
       Serial.print("."); Serial.println(buffer[1]);
       break;
   }
+}
+
+void buzzerAlert(int freq, int duration, int _delay) {
+     delay(_delay); 
+     tone(BuzzerPin, freq, duration);
+     delay(_delay);
+     noTone(BuzzerPin);
+     delay(_delay);  
 }
