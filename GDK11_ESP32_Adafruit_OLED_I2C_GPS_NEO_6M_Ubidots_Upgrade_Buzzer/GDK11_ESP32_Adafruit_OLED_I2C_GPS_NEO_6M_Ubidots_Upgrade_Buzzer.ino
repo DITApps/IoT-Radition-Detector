@@ -6,6 +6,8 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+
+// GPS 라이브러리
 #include <TinyGPS++.h>
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -14,7 +16,7 @@
 // Ubidots Business : .IoTBusan
 #define TOKEN  "BBFF-H33IAugaKzWOs1sS1thrIzCP0nQNu7"  // Put here your Ubidots TOKEN
 
-// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
+// OLED 최기화 : Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 #include <SoftwareSerial.h>
@@ -63,6 +65,7 @@ TinyGPSPlus gps;
 SoftwareSerial ss(RXPin, TXPin);
 
 double _lat, _lng;
+// Ubidot 클라우드에서 위도, 경도, 값 저장
 char context[25];
 
 // 감마센서 보정값 저장
@@ -85,11 +88,11 @@ void setup() {
   // GPS init
   ss.begin(GPSBaud);
 
+  // OLED Init
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3D)) { // Address 0x3D for 128x64
     Serial.println(F("SSD1306 allocation failed"));
     for (;;);
   }
-
   display.begin(SSD1306_SWITCHCAPVCC, 0x3D);// initialize with the I2C addr 0x3C
   display.display();
   display.clearDisplay();
@@ -119,7 +122,7 @@ void loop()
       buzzerAlert(2000, 500, 100);
       break;
     case 300 ... 5000 :  // 위험 수준
-      buzzerAlert(20000, 500, 10);
+      buzzerAlert(65535, 5, 5);
       break;
   }
   
