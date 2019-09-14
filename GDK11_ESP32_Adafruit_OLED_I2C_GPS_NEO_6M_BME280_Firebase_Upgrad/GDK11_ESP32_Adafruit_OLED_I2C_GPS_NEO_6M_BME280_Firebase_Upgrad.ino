@@ -1,5 +1,6 @@
-// Firebae, GPS, 감마센서, BME280
-
+///////////////////////////////////////
+// Firebase, GPS, OLED, 감마센서, BME280
+////////////////////////////////////////
 // Gamma Sensor's Example Interface
 // GPS 최기화 전에도 감마 센서 작동
 //#include "UbidotsMicroESP8266.h"
@@ -7,15 +8,20 @@
 // Firebase
 #include <time.h>
 #include <ESP8266WiFi.h>                                                    // esp8266 library
-#include <FirebaseArduino.h>                                                // firebase library                                                      // dht11 temperature and humidity sensor library
-
+#include <FirebaseArduino.h>    // firebase library                                                      // dht11 temperature and humidity sensor library
 #define FIREBASE_HOST "radiationtracker-1a73e.firebaseio.com"                          // the project name address from firebase id
 #define FIREBASE_AUTH "bs86QcuVBSFH4qBEMTf3WWEz0i8WRJYGjYPcNZSL"            // the secret key generated from firebase
 
-//#define WIFI_SSID "melon"                                             // input your home or public wifi name 
-//#define WIFI_PASSWORD "deitcs3217"   
-#define WIFI_SSID "Amadeus"                                             // input your home or public wifi name 
-#define WIFI_PASSWORD "deitcs3217" 
+// BME280
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
+#define SEALEVELPRESSURE_HPA (1013.25)
+Adafruit_BME280 bme; // I2C
+
+#define WIFI_SSID "melon"                                             // input your home or public wifi name 
+#define WIFI_PASSWORD "deitcs3217"   
+//#define WIFI_SSID "Amadeus"                                             // input your home or public wifi name 
+//#define WIFI_PASSWORD "deitcs3217" 
 //#define WIFI_SSID "olleh_WiFi_0F8E" // Put here your Wi-Fi SSID
 //#define WIFI_PASSWORD "0000006593" // Put here your Wi-Fi password
 
@@ -36,6 +42,7 @@
 // OLED 최기화 : Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
+// buzzer Siren 설정 
 int freq = 150;
 boolean freqFlag = true;
 
@@ -70,9 +77,9 @@ int status = 0;
 int timezone = 3;
 int dst = 0;
 
-// GPS
+// GPS 설정
 static const int RXPin = D7, TXPin = D6; // GPS Software Serial
-static const int BuzzerPin = D4; // 부저 PWM
+static const int buzzerPin = D5; // 부저 PWM
 static const uint32_t GPSBaud = 9600; // Change according to your device
 
 // The TinyGPS++ object
@@ -81,27 +88,23 @@ TinyGPSPlus gps;
 // The serial connection to the GPS device
 SoftwareSerial ss(RXPin, TXPin);
 
+// 위도, 경도 저장
 float _lat, _lng;
-// Ubidot 클라우드에서 위도, 경도, 값 저장
-//char context[25];
 
 // 감마센서 보정값 저장
 float val_1min = 0.0f;
 float val_10min = 0.0f;
 int val_alert = 0;
 
-// 센서 작동 시간 주기
-unsigned long previousMillis = 0;     // last time data was send
-const long interval = 10000;           // data transfer interval
-
-//Ubidots client(TOKEN);
+// BME208 altitude Value
+float _altitude = 0.00f;
 
 void setup() {
   //Arduino Initialize
   Serial.begin(115200);
   Wire.begin();
   // Buzzer init
-  pinMode(BuzzerPin, OUTPUT);
+  pinMode(buzzerPin, OUTPUT);
   // GPS init
   ss.begin(GPSBaud);
 
@@ -113,6 +116,15 @@ void setup() {
   display.begin(SSD1306_SWITCHCAPVCC, 0x3D);// initialize with the I2C addr 0x3C
   display.display();
   display.clearDisplay();
+
+  // BME I2C setup
+  bool status;
+  status = bme.begin(0x76);  // 0x76 
+  if (!status) {
+      Serial.println("Could not find a valid BME280 sensor, check wiring!");
+      while (1);
+  }
+  Serial.println("BME OK");
 
   Serial.println("Gamma Sensor Sensing Start");
   //Read Firmware version
@@ -167,25 +179,27 @@ void loop()
       buzzerSiren();
       break;
   }
-  
-  unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis >= interval)
-  {
-    previousMillis = currentMillis;
-    //Read Statue, Measuring Time, Measuring Value
-    Gamma_Mod_Read_Value();
-    Serial.println("================================================");
-  }
+   
+  //Read Statue, Measuring Time, Measuring Value
+  Gamma_Mod_Read_Value();
+  Serial.println("================================================");
 
-    StaticJsonBuffer<300> jsonBuffer;
-    JsonObject&root = jsonBuffer.createObject();
-    root["nowTime"] = ctime(&now);
-    root["value1min"] = val_1min;
-    root["value10min"] = val_10min;
-    root["lat"] = _lat;
-    root["lng"] = _lng;
-    Firebase.push("/data", root);
-    //delay(10000);
+  // BME print
+  _altitude = bme.readAltitude(SEALEVELPRESSURE_HPA);
+  Serial.print("Approx. Altitude = ");
+  Serial.print(_altitude);
+  Serial.println(" m");
+    
+  StaticJsonBuffer<300> jsonBuffer;
+  JsonObject&root = jsonBuffer.createObject();
+  root["nowTime"] = ctime(&now);
+  root["value1min"] = val_1min;
+  root["value10min"] = val_10min;
+  root["latitude"] = _lat;
+  root["longitude"] = _lng;
+  root["altitude"] = _altitude;
+  Firebase.push("/data", root);
+  delay(10000);
 }
 
 void Gamma_Mod_Read_Value() {
@@ -357,18 +371,20 @@ void Print_Result(int cmd) {
 // 부저 함
 void buzzerAlert(int freq, int duration, int _delay) {
      delay(_delay); 
-     tone(BuzzerPin, freq, duration);
+     tone(buzzerPin, freq, duration);
      delay(_delay);
-     noTone(BuzzerPin);
+     noTone(buzzerPin);
      delay(_delay);  
 }
 
 void buzzerSiren() {
-  tone(BuzzerPin, 150, 10);
-  if(freqFlag == true) freq += 2;
-  if(freq >= 1800) freqFlag = false;
-  if(freqFlag == false) freq -= 2;
-  if(freq <= 150) freqFlag = true;
+    tone(buzzerPin, freq, 10);
+    if(freqFlag == true) freq += 2;
+    if(freq >= 1800) freqFlag = false;
+  
+    if(freqFlag == false) freq -= 2;
+    if(freq <= 150) freqFlag = true;
+    delay(5); 
 }
 
 // 시간 구하기 함수

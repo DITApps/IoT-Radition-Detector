@@ -1,5 +1,3 @@
-// Firebae, GPS, 감마센서, BME280
-
 // Gamma Sensor's Example Interface
 // GPS 최기화 전에도 감마 센서 작동
 //#include "UbidotsMicroESP8266.h"

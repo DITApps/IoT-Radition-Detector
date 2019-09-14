@@ -16,15 +16,15 @@
 // Ubidots Business : .IoTBusan
 #define TOKEN  "BBFF-H33IAugaKzWOs1sS1thrIzCP0nQNu7"  // Put here your Ubidots TOKEN
 
-// OLED 최기화 : Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
+// OLED 초기화 : Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 #include <SoftwareSerial.h>
 
-//#define WIFISSID "melon" // Put here your Wi-Fi SSID
-//#define PASSWORD "deitcs3217" // Put here your Wi-Fi password
-#define WIFISSID "Amadeus" // Put here your Wi-Fi SSID
+#define WIFISSID "melon" // Put here your Wi-Fi SSID
 #define PASSWORD "deitcs3217" // Put here your Wi-Fi password
+//#define WIFISSID "Amadeus" // Put here your Wi-Fi SSID
+//#define PASSWORD "deitcs3217" // Put here your Wi-Fi password
 //#define WIFISSID "olleh_WiFi_0F8E" // Put here your Wi-Fi SSID
 //#define PASSWORD "0000006593" // Put here your Wi-Fi password
 
@@ -55,7 +55,7 @@ int status = 0;
 
 // GPS
 static const int RXPin = D7, TXPin = D6; // GPS Software Serial
-static const int BuzzerPin = D5; // 부저 PWM
+static const int buzzerPin = D5; // 부저 PWM
 static const uint32_t GPSBaud = 9600; // Change according to your device
 
 // The TinyGPS++ object
@@ -73,6 +73,10 @@ float val_1min = 0.0f;
 float val_10min = 0.0f;
 int val_alert = 0;
 
+// buzzer Siren 설정
+int freq = 150;
+boolean freqFlag = true;
+
 // 센서 작동 시간 주기
 unsigned long previousMillis = 0;     // last time data was send
 const long interval = 10000;           // data transfer interval
@@ -80,11 +84,12 @@ const long interval = 10000;           // data transfer interval
 Ubidots client(TOKEN);
 
 void setup() {
+  noTone(buzzerPin);
   //Arduino Initialize
   Serial.begin(115200);
   Wire.begin();
   // Buzzer init
-  pinMode(BuzzerPin, OUTPUT);
+  pinMode(buzzerPin, OUTPUT);
   // GPS init
   ss.begin(GPSBaud);
 
@@ -116,13 +121,22 @@ void loop()
   val_alert = val_1min * 100;
   Serial.println(val_alert);
   switch (val_alert) {
+//    case 1 ... 39 :  // 방사선 발견시
+//      buzzerAlert(0, 500, 500);
+//    case 40 ... 299 : // 경고 수준
+//      buzzerAlert(2000, 500, 100);
+//      break;
+//    case 300 ... 5000 :  // 위험 수준
+//      buzzerAlert(65535, 50, 50);
+//      break;
+
     case 1 ... 39 :  // 방사선 발견시
-      buzzerAlert(0, 500, 500);
+      buzzerAlert(0, 20, 500);
     case 40 ... 299 : // 경고 수준
-      buzzerAlert(2000, 500, 100);
+      buzzerAlert(100, 400, 100);
       break;
     case 300 ... 5000 :  // 위험 수준
-      buzzerAlert(65535, 5, 5);
+      buzzerSiren();
       break;
   }
   
@@ -307,8 +321,18 @@ void Print_Result(int cmd) {
 
 void buzzerAlert(int freq, int duration, int _delay) {
      delay(_delay); 
-     tone(BuzzerPin, freq, duration);
+     tone(buzzerPin, freq, duration);
      delay(_delay);
-     noTone(BuzzerPin);
+     noTone(buzzerPin);
      delay(_delay);  
+}
+
+void buzzerSiren() {
+     tone(buzzerPin, freq, 10);
+    if(freqFlag == true) freq += 2;
+    if(freq >= 1800) freqFlag = false;
+  
+    if(freqFlag == false) freq -= 2;
+    if(freq <= 150) freqFlag = true;
+    delay(5); 
 }

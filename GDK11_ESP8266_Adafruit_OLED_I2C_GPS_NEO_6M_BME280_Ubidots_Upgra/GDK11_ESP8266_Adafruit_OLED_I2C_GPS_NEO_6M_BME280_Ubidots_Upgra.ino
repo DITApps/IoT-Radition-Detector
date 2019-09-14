@@ -1,28 +1,17 @@
-// Firebae, GPS, 감마센서, BME280
-
 // Gamma Sensor's Example Interface
 // GPS 최기화 전에도 감마 센서 작동
-//#include "UbidotsMicroESP8266.h"
-
-// Firebase
-#include <time.h>
-#include <ESP8266WiFi.h>                                                    // esp8266 library
-#include <FirebaseArduino.h>                                                // firebase library                                                      // dht11 temperature and humidity sensor library
-
-#define FIREBASE_HOST "radiationtracker-1a73e.firebaseio.com"                          // the project name address from firebase id
-#define FIREBASE_AUTH "bs86QcuVBSFH4qBEMTf3WWEz0i8WRJYGjYPcNZSL"            // the secret key generated from firebase
-
-//#define WIFI_SSID "melon"                                             // input your home or public wifi name 
-//#define WIFI_PASSWORD "deitcs3217"   
-#define WIFI_SSID "Amadeus"                                             // input your home or public wifi name 
-#define WIFI_PASSWORD "deitcs3217" 
-//#define WIFI_SSID "olleh_WiFi_0F8E" // Put here your Wi-Fi SSID
-//#define WIFI_PASSWORD "0000006593" // Put here your Wi-Fi password
+#include "UbidotsMicroESP8266.h"
 
 // Adafruit OLED 128x64
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+
+// BME280
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
+#define SEALEVELPRESSURE_HPA (1013.25)
+Adafruit_BME280 bme; // I2C
 
 // GPS 라이브러리
 #include <TinyGPS++.h>
@@ -31,15 +20,19 @@
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
 // Ubidots Business : .IoTBusan
-//#define TOKEN  "BBFF-H33IAugaKzWOs1sS1thrIzCP0nQNu7"  // Put here your Ubidots TOKEN
+#define TOKEN  "BBFF-H33IAugaKzWOs1sS1thrIzCP0nQNu7"  // Put here your Ubidots TOKEN
 
-// OLED 최기화 : Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
+// OLED 초기화 : Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
-int freq = 150;
-boolean freqFlag = true;
-
 #include <SoftwareSerial.h>
+
+#define WIFISSID "melon" // Put here your Wi-Fi SSID
+#define PASSWORD "deitcs3217" // Put here your Wi-Fi password
+//#define WIFISSID "Amadeus" // Put here your Wi-Fi SSID
+//#define PASSWORD "deitcs3217" // Put here your Wi-Fi password
+//#define WIFISSID "olleh_WiFi_0F8E" // Put here your Wi-Fi SSID
+//#define PASSWORD "0000006593" // Put here your Wi-Fi password
 
 /*
   We will be using the I2C hardware interface on the Arduino in
@@ -66,13 +59,9 @@ int _day, _hour, _min, _sec = 0;
 byte buffer[2] = {0, 0};
 int status = 0;
 
-// 시간 설정
-int timezone = 3;
-int dst = 0;
-
-// GPS
+// GPS Pin 등 설정
 static const int RXPin = D7, TXPin = D6; // GPS Software Serial
-static const int BuzzerPin = D4; // 부저 PWM
+static const int buzzerPin = D5; // 부저 PWM
 static const uint32_t GPSBaud = 9600; // Change according to your device
 
 // The TinyGPS++ object
@@ -81,27 +70,36 @@ TinyGPSPlus gps;
 // The serial connection to the GPS device
 SoftwareSerial ss(RXPin, TXPin);
 
-float _lat, _lng;
+double _lat, _lng;
 // Ubidot 클라우드에서 위도, 경도, 값 저장
-//char context[25];
+char context[25];
 
 // 감마센서 보정값 저장
 float val_1min = 0.0f;
 float val_10min = 0.0f;
 int val_alert = 0;
 
+// buzzer Siren 설정
+int freq = 150;
+boolean freqFlag = true;
+
+// BME208 altitude Value
+float altitude = 0.00f;
+
 // 센서 작동 시간 주기
 unsigned long previousMillis = 0;     // last time data was send
 const long interval = 10000;           // data transfer interval
 
-//Ubidots client(TOKEN);
+Ubidots client(TOKEN);
 
 void setup() {
+  noTone(buzzerPin);
   //Arduino Initialize
   Serial.begin(115200);
-  Wire.begin();
+  Wire.begin(D2, D1);
   // Buzzer init
-  pinMode(BuzzerPin, OUTPUT);
+  pinMode(buzzerPin, OUTPUT);
+    
   // GPS init
   ss.begin(GPSBaud);
 
@@ -114,56 +112,41 @@ void setup() {
   display.display();
   display.clearDisplay();
 
+  // BME I2C setup
+  bool status;
+  status = bme.begin(0x76);  // 0x76 
+  if (!status) {
+      Serial.println("Could not find a valid BME280 sensor, check wiring!");
+      while (1);
+  }
+  Serial.println("BME OK");
+
   Serial.println("Gamma Sensor Sensing Start");
   //Read Firmware version
   Gamma_Mod_Read(0xB4);
   //Reset before operating the sensor
   Gamma_Mod_Read(0xA0);
 
-  // Firebase Wi-Fi connection
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);                                     //try to connect with wifi
-  Serial.print("Connecting to ");
-  Serial.print(WIFI_SSID);
-  while (WiFi.status() != WL_CONNECTED) {
-    Serial.print(".");
-    delay(500);
-  }
-  Serial.println();
-  Serial.print("Connected to ");
-  Serial.println(WIFI_SSID);
-  Serial.print("IP Address is : ");
-  Serial.println(WiFi.localIP());                                            //print local IP address
-  
-  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH); 
-
-  // 시간 초기화
-  configTime(9 * 3600 + 40, 0, "pool.ntp.org", "time.nist.gov");
-  Serial.println("\nWaiting for time");
-  while (!time(nullptr)) {
-    Serial.print(".");
-    delay(1000);
-  }
-  Serial.println("");
+  // Ubidits Wi-Fi connection
+  client.wifiConnection(WIFISSID, PASSWORD);
+  Serial.print("Wi-Fi Conneted!!");
+  // Ubidots Device Name 설정 
+  client.setDataSourceName("Iot_Radiation_tracker");
 }
 
 void loop()
 { 
-  // 시간 출력
-  time_t now = time(nullptr);
-  Serial.println(ctime(&now));
-  getTextTime(now);
-  
   // Buzzer Alerm Start
   val_alert = val_1min * 100;
   Serial.println(val_alert);
+  
   switch (val_alert) {
     case 1 ... 39 :  // 방사선 발견시
-      buzzerAlert(0, 500, 500);
+      buzzerAlert(0, 20, 500);
     case 40 ... 299 : // 경고 수준
-      buzzerAlert(2000, 500, 100);
+      buzzerAlert(100, 400, 100);
       break;
     case 300 ... 5000 :  // 위험 수준
-      //buzzerAlert(65535, 0, 0);
       buzzerSiren();
       break;
   }
@@ -172,20 +155,20 @@ void loop()
   if (currentMillis - previousMillis >= interval)
   {
     previousMillis = currentMillis;
+
+    // BME print
+    altitude = bme.readAltitude(SEALEVELPRESSURE_HPA);
+    Serial.print("Approx. Altitude = ");
+    Serial.print(altitude);
+    Serial.println(" m");
+
+    client.add("altitude", altitude, context);
+    // client.sendAll(true);
+    
     //Read Statue, Measuring Time, Measuring Value
     Gamma_Mod_Read_Value();
     Serial.println("================================================");
   }
-
-    StaticJsonBuffer<300> jsonBuffer;
-    JsonObject&root = jsonBuffer.createObject();
-    root["nowTime"] = ctime(&now);
-    root["value1min"] = val_1min;
-    root["value10min"] = val_10min;
-    root["lat"] = _lat;
-    root["lng"] = _lng;
-    Firebase.push("/data", root);
-    //delay(10000);
 }
 
 void Gamma_Mod_Read_Value() {
@@ -254,10 +237,8 @@ void Print_Result(int cmd) {
       {
         _lat = gps.location.lat();
         _lng = gps.location.lng();
-        //sprintf(context, "lat=%.3f$lng=%.3f", _lat, _lng);
-        //Serial.print(context);
-        Serial.print("GPS lat  ");
-        Serial.print(_lat);
+        sprintf(context, "lat=%.3f$lng=%.3f", _lat, _lng);
+        Serial.print(context);
 
       } else {
         Serial.print(F("GPS INVALID"));
@@ -302,6 +283,7 @@ void Print_Result(int cmd) {
       value = buffer[0] + (float)buffer[1] / 100;
       val_10min = value / 12.30;
       Serial.print(val_10min); Serial.println(" uSv/hr");
+      client.add("val_10min", val_10min, context);
 
       //  OLED Display
       display.clearDisplay();
@@ -315,10 +297,11 @@ void Print_Result(int cmd) {
       display.print(val_10min);
       display.setCursor(50, 49);
       display.setTextSize(1);
-      display.print(" uSv/hr");
+      display.print("uSv/hr ");
 
-      //display.display();
-      //delay(500);
+      // BME value OLED Display
+//      display.print(bmeVal); display.print("m");
+//      display.display();
 
       break;
 
@@ -327,22 +310,30 @@ void Print_Result(int cmd) {
       value = buffer[0] + (float)buffer[1] / 100;
       val_1min = value / 12.30;
       Serial.print(val_1min); Serial.println(" uSv/hr");
-      
+
+      client.add("val_1min", val_1min, context);
+      client.sendAll(true);
+      //delay(500);
+
       //  OLED Display
       //display.clearDisplay();
       display.setTextSize(1);
       display.setTextColor(WHITE);
       display.setCursor(0, 0);
       display.print("1 min avg value");
+      display.print("   Alt");
 
       display.setCursor(0, 10);
       display.setTextSize(2);
       display.print(val_1min);
       display.setCursor(50, 17);
       display.setTextSize(1);
-      display.print(" uSv/hr");
+      display.print("uSv/hr ");
 
+      // BME value OLED Display
+      display.print(altitude); display.print("m");
       display.display();
+    
       //delay(500);
       break;
 
@@ -354,31 +345,20 @@ void Print_Result(int cmd) {
   }
 }
 
-// 부저 함
 void buzzerAlert(int freq, int duration, int _delay) {
      delay(_delay); 
-     tone(BuzzerPin, freq, duration);
+     tone(buzzerPin, freq, duration);
      delay(_delay);
-     noTone(BuzzerPin);
+     noTone(buzzerPin);
      delay(_delay);  
 }
 
 void buzzerSiren() {
-  tone(BuzzerPin, 150, 10);
-  if(freqFlag == true) freq += 2;
-  if(freq >= 1800) freqFlag = false;
-  if(freqFlag == false) freq -= 2;
-  if(freq <= 150) freqFlag = true;
-}
-
-// 시간 구하기 함수
-String getTextTime(time_t now)
-{
-  struct tm * timeinfo;
-  timeinfo = localtime(&now);
-  // Serial.println(timeinfo->tm_hour);
-  // Serial.println(timeinfo->tm_min);
-  // Serial.println(timeinfo->tm_wday);
-  String text = String(timeinfo->tm_hour) + String(timeinfo->tm_min) + String(timeinfo->tm_wday);
-  //Serial.println(text);
+    tone(buzzerPin, freq, 10);
+    if(freqFlag == true) freq += 2;
+    if(freq >= 1800) freqFlag = false;
+  
+    if(freqFlag == false) freq -= 2;
+    if(freq <= 150) freqFlag = true;
+    delay(5); 
 }
