@@ -57,6 +57,7 @@ int status = 0;
 static const int RXPin = D7, TXPin = D6; // GPS Software Serial
 static const int buzzerPin = D5; // 부저 PWM
 static const uint32_t GPSBaud = 9600; // Change according to your device
+bool gpsState = false;
 
 // The TinyGPS++ object
 TinyGPSPlus gps;
@@ -71,7 +72,7 @@ char context[25];
 // 감마센서 보정값 저장
 float val_1min = 0.0f;
 float val_10min = 0.0f;
-int val_alert = 0;
+float val_alert = 0.0f;
 
 // buzzer Siren 설정
 int freq = 150;
@@ -119,17 +120,8 @@ void loop()
 { 
   // Buzzer Alerm Start
   val_alert = val_1min * 100;
-  Serial.println(val_alert);
-  switch (val_alert) {
-//    case 1 ... 39 :  // 방사선 발견시
-//      buzzerAlert(0, 500, 500);
-//    case 40 ... 299 : // 경고 수준
-//      buzzerAlert(2000, 500, 100);
-//      break;
-//    case 300 ... 5000 :  // 위험 수준
-//      buzzerAlert(65535, 50, 50);
-//      break;
-
+  Serial.println(int(round(val_alert)));
+  switch (int(round(val_alert))) {
     case 1 ... 39 :  // 방사선 발견시
       buzzerAlert(0, 20, 500);
     case 40 ... 299 : // 경고 수준
@@ -278,9 +270,11 @@ void Print_Result(int cmd) {
       display.setTextSize(1);
       display.print(" uSv/hr");
 
-      //display.display();
-      //delay(500);
-
+       if (gpsState == true) {
+        display.print("   ON");
+      } else {
+        display.print("   OFF");
+      }
       break;
 
     case 0xB3:
@@ -291,8 +285,7 @@ void Print_Result(int cmd) {
 
       client.add("val_1min", val_1min, context);
       client.sendAll(true);
-      //delay(500);
-
+    
       //  OLED Display
       //display.clearDisplay();
       display.setTextSize(1);
@@ -307,6 +300,9 @@ void Print_Result(int cmd) {
       display.setTextSize(1);
       display.print(" uSv/hr");
 
+      // BME value OLED Display
+      display.print(_altitude); 
+      display.print("m");
       display.display();
       //delay(500);
       break;
@@ -328,7 +324,7 @@ void buzzerAlert(int freq, int duration, int _delay) {
 }
 
 void buzzerSiren() {
-     tone(buzzerPin, freq, 10);
+    tone(buzzerPin, freq, 10);
     if(freqFlag == true) freq += 2;
     if(freq >= 1800) freqFlag = false;
   
